@@ -6,7 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-public class Test {
+public class ClientScript {
 
     public static void main(String[] args) {
         try (
@@ -18,7 +18,7 @@ public class Test {
         ) {
 
             String fromServer;
-            out.println("PING");
+            out.println("route2|{'name': 'Jake', 'age': 19}");
             while (!(fromServer = in.readLine()).equals("EOF")) {
                 System.out.println("Server: " + fromServer);
             }

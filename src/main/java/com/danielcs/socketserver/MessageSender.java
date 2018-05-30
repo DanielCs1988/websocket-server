@@ -5,19 +5,18 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.ArrayBlockingQueue;
 
-public class ConnectionHandler implements Runnable {
+public class MessageSender implements Runnable {
 
     private final Socket socket;
     private ArrayBlockingQueue<String> messages;
 
-    public ConnectionHandler(Socket socket, ArrayBlockingQueue<String> messages) {
+    public MessageSender(Socket socket, ArrayBlockingQueue<String> messages) {
         this.socket = socket;
         this.messages = messages;
     }
 
     @Override
     public void run() {
-        new Thread(new MessageBroker(socket, messages)).start();
         try (PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
             String msg;
