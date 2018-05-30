@@ -20,9 +20,10 @@ public class MessageSender implements Runnable {
         try (PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
             String msg;
-            while (!(msg = messages.take()).equals("EOF")) {
+            while (!(msg = messages.take()).startsWith("EOF")) {
                 out.println(msg);
             }
+            // TODO: this will cause trouble in a real application
             out.println("EOF");
             System.out.println(socket.getInetAddress() + " output module stopped normally.");
 

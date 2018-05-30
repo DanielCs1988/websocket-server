@@ -61,6 +61,9 @@ public class MessageBroker implements Runnable {
 
         } catch (IOException e) {
             System.out.println("Messagebroker connection lost.");
+        } finally {
+            // TODO: make it nicer
+            emitterImpl.reply("EOF", null);
         }
     }
 
