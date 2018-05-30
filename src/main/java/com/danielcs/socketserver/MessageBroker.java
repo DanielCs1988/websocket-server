@@ -8,19 +8,18 @@ import java.lang.reflect.Method;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 
 public class MessageBroker implements Runnable {
 
-    private static final String SEPARATOR = "\\|";
+    static final String SEPARATOR = "&&";
     private final Socket socket;
-    private ArrayBlockingQueue<String> messages;
+    private final SocketServer.EmitterImpl emitterImpl;
     private Map<String, Handler> handlers = new HashMap<>();
     private Gson converter = new Gson();
 
-    public MessageBroker(Socket socket, ArrayBlockingQueue<String> messages, Map<Class, Map<String, Controller>> controllers) {
+    public MessageBroker(Socket socket, SocketServer.EmitterImpl emitterImpl, Map<Class, Map<String, Controller>> controllers) {
         this.socket = socket;
-        this.messages = messages;
+        this.emitterImpl = emitterImpl;
         initHandlers(controllers);
     }
 
@@ -70,7 +69,7 @@ public class MessageBroker implements Runnable {
         String route = fullMsg[0];
         String payload = fullMsg[1];
         // TODO: NULL CHECK
-        handlers.get(route).handle(payload);
+        handlers.get(route).handle(emitterImpl, payload);
     }
 
     private final class Handler {
@@ -85,11 +84,11 @@ public class MessageBroker implements Runnable {
             this.type = type;
         }
 
-        void handle(String rawInput) {
+        void handle(SocketServer.EmitterImpl emitterImpl, String rawInput) {
             // TODO: wrong input needs to be handled
-            Object param = type == String.class ? rawInput : converter.fromJson(rawInput, type);
+            Object payload = type == String.class ? rawInput : converter.fromJson(rawInput, type);
             try {
-                method.invoke(obj, param);
+                method.invoke(obj, emitterImpl, payload);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 System.out.println("Handler call failed: " + method.getName());
             }

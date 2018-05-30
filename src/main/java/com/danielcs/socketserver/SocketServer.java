@@ -1,5 +1,6 @@
 package com.danielcs.socketserver;
 
+import com.google.gson.Gson;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 import org.reflections.scanners.TypeAnnotationsScanner;
@@ -56,30 +57,33 @@ public class SocketServer {
 
         try (ServerSocket server = new ServerSocket(PORT)) {
 
-            int counter = 1;
+            int currentUserId = 1;
             while (true) {
                 Socket client = server.accept();
-                messages.put(counter, new ArrayBlockingQueue<>(2));
-                MessageSender handler = new MessageSender(client, messages.get(counter));
-                MessageBroker broker = new MessageBroker(client, messages.get(counter), controllers);
+                messages.put(currentUserId, new ArrayBlockingQueue<>(2));
+                EmitterImpl emitterImpl = new EmitterImpl(currentUserId);
+
+                MessageSender handler = new MessageSender(client, messages.get(currentUserId));
+                MessageBroker broker = new MessageBroker(client, emitterImpl, controllers);
                 connectionPool.execute(handler);
                 connectionPool.execute(broker);
-                messages.get(counter).offer("Welcome user number" + counter);
-                System.out.println("Client connected: " + counter);
 
-                if (counter > 1) {
+                messages.get(currentUserId).offer("Welcome user number" + currentUserId);
+                System.out.println("Client connected: " + currentUserId);
+
+                if (currentUserId > 1) {
                     for (Integer id : messages.keySet()) {
                         messages.get(id).offer("NEW GUY IZ HERE!");
                     }
                 }
 
-                if (counter > 3) {
+                if (currentUserId > 3) {
                     for (Integer id : messages.keySet()) {
                         messages.get(id).offer("EOF");
                     }
                     break;
                 }
-                counter ++;
+                currentUserId ++;
             }
 
         } catch (IOException e) {
@@ -92,6 +96,29 @@ public class SocketServer {
     public static void main(String[] args) {
         SocketServer server = new SocketServer(5000, "com.danielcs.socketserver.controllers", 10);
         server.start();
+    }
+
+    class EmitterImpl implements Emitter {
+
+        private final ArrayBlockingQueue<String> clientMessageQueue;
+        private final Gson converter = new Gson();
+
+        EmitterImpl(int clientId) {
+            clientMessageQueue = messages.get(clientId);
+        }
+
+        public void reply(String path, Object payload) {
+            // TODO: extract message encoding, maybe also: handle string payload
+            String msg = path + MessageBroker.SEPARATOR + converter.toJson(payload);
+            clientMessageQueue.offer(msg);
+        }
+
+        public void emit(String path, Object payload) {
+            String msg = path + MessageBroker.SEPARATOR + converter.toJson(payload);
+            for (ArrayBlockingQueue<String> msgQueue : messages.values()) {
+                msgQueue.offer(msg);
+            }
+        }
     }
 }
 
