@@ -17,7 +17,6 @@ import java.util.concurrent.*;
 public class SocketServer {
 
     private final int PORT;
-    private final int POOL_SIZE;
     private final String CLASSPATH;
 
     private final ExecutorService connectionPool;
@@ -27,8 +26,7 @@ public class SocketServer {
     public SocketServer(int port, String classPath, int poolSize) {
         this.PORT = port;
         this.CLASSPATH = classPath;
-        this.POOL_SIZE = poolSize;
-        connectionPool = Executors.newFixedThreadPool(POOL_SIZE * 2);
+        connectionPool = Executors.newFixedThreadPool(poolSize * 2);
         setupControllers();
     }
 
@@ -68,21 +66,7 @@ public class SocketServer {
                 connectionPool.execute(handler);
                 connectionPool.execute(broker);
 
-                messages.get(currentUserId).offer("Welcome user number" + currentUserId);
                 System.out.println("Client connected: " + currentUserId);
-
-                if (currentUserId > 1) {
-                    for (Integer id : messages.keySet()) {
-                        messages.get(id).offer("NEW GUY IZ HERE!");
-                    }
-                }
-
-                if (currentUserId > 3) {
-                    for (Integer id : messages.keySet()) {
-                        messages.get(id).offer("EOF");
-                    }
-                    break;
-                }
                 currentUserId ++;
             }
 

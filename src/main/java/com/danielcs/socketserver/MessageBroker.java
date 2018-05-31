@@ -2,16 +2,24 @@ package com.danielcs.socketserver;
 
 import com.google.gson.Gson;
 
+import javax.xml.bind.DatatypeConverter;
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.Socket;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.danielcs.socketserver.Utils.decodeSocketStream;
 
 public class MessageBroker implements Runnable {
 
-    static final String SEPARATOR = "&&";
+    private static final int BUFFER_SIZE = 4096;
+    static final String SEPARATOR = "×";
     private final Socket socket;
     private final SocketServer.EmitterImpl emitterImpl;
     private Map<String, Handler> handlers = new HashMap<>();
@@ -44,34 +52,93 @@ public class MessageBroker implements Runnable {
 
     @Override
     public void run() {
-        try (BufferedReader in = new BufferedReader(
-                new InputStreamReader(
-                        socket.getInputStream()
-                )
-        )) {
+        try (
+                InputStream is = socket.getInputStream();
+                InputStreamReader isr = new InputStreamReader(is);
+                BufferedReader in = new BufferedReader(isr);
+                OutputStream out = socket.getOutputStream()
+        ) {
 
+            boolean isConnectionValid = handleHandshake(in, out);
+            if (!isConnectionValid) {
+                System.out.println("Invalid handshake attempt was received. Thread broken.");
+                emitterImpl.reply("EOF", null);
+                return;
+            }
+            
             System.out.println("Listening for incoming messages...");
+            byte[] stream = new byte[BUFFER_SIZE];
+            int len;
             String msg;
-            while ((msg = in.readLine()) != null) {
-                if (msg.equals("EOF")) break;
-                System.out.println(msg); // SERVER LOG
-                processMessage(msg);
+
+            while (true) {
+                len = is.read(stream);
+                if (len != -1) {
+                    msg = decodeSocketStream(stream, len);
+                    if (msg.equals("EOF")) {
+                        break;
+                    }
+                    System.out.println(msg);
+                    processMessage(msg);
+                    stream = new byte[BUFFER_SIZE];
+                }
             }
             System.out.println("Messagebroker stopped normally.");
 
         } catch (IOException e) {
             System.out.println("Messagebroker connection lost.");
+            System.out.println(socket.isClosed());
+            e.printStackTrace();
         } finally {
             // TODO: make it nicer
             emitterImpl.reply("EOF", null);
         }
     }
 
+    private boolean handleHandshake(BufferedReader in, OutputStream out) throws IOException {
+        String msg = in.readLine();
+        if (msg.startsWith("GET")) {
+            // TODO: VOLATILE
+            Pattern pattern = Pattern.compile("Sec-WebSocket-Key: (.*)");
+            Matcher match = pattern.matcher(msg);
+            boolean keyFound = match.find();
+            while (!keyFound) {
+                msg = in.readLine();
+                match = pattern.matcher(msg);
+                keyFound = match.find();
+            }
+
+            byte[] response;
+            try {
+                response = ("HTTP/1.1 101 Switching Protocols\r\n"
+                        + "Connection: Upgrade\r\n"
+                        + "Upgrade: websocket\r\n"
+                        + "Sec-WebSocket-Accept: "
+                        + DatatypeConverter.printBase64Binary(
+                                MessageDigest
+                                        .getInstance("SHA-1")
+                                        .digest((match.group(1) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+                                                .getBytes("UTF-8"))
+                        )
+                        + "\r\n\r\n").getBytes("UTF-8");
+            } catch (UnsupportedEncodingException | NoSuchAlgorithmException e) {
+                System.out.println("Could not encode handshake.");
+                return false;
+            }
+            out.write(response, 0, response.length);
+            return true;
+        }
+        return false;
+    }
+
     private void processMessage(String msg) {
         String[] fullMsg = msg.split(SEPARATOR);
+        if (fullMsg.length != 2) {
+            System.out.println("Received a faulty message.");
+            return;
+        }
         String route = fullMsg[0];
         String payload = fullMsg[1];
-        // TODO: NULL CHECK
         handlers.get(route).handle(emitterImpl, payload);
     }
 

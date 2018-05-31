@@ -1,9 +1,12 @@
 package com.danielcs.socketserver;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.ArrayBlockingQueue;
+
+import static com.danielcs.socketserver.Utils.encodeSocketStream;
 
 public class MessageSender implements Runnable {
 
@@ -17,14 +20,12 @@ public class MessageSender implements Runnable {
 
     @Override
     public void run() {
-        try (PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+        try (OutputStream out = socket.getOutputStream()) {
 
             String msg;
             while (!(msg = messages.take()).startsWith("EOF")) {
-                out.println(msg);
+                out.write(encodeSocketStream(msg));
             }
-            // TODO: this will cause trouble in a real application
-            out.println("EOF");
             System.out.println(socket.getInetAddress() + " output module stopped normally.");
 
         } catch (IOException | InterruptedException e) {

@@ -18,7 +18,7 @@ public class ClientScript {
         ) {
 
             String fromServer;
-            out.println("route2&&{'name': 'Jake', 'age': 19}");
+            out.println("GET");
             while (!(fromServer = in.readLine()).equals("EOF")) {
                 System.out.println("Server: " + fromServer);
             }
