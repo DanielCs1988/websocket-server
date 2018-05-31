@@ -20,14 +20,15 @@ public class MessageBroker implements Runnable {
 
     private static final int BUFFER_SIZE = 4096;
     static final String SEPARATOR = "×";
-    private final Socket socket;
-    private final SocketServer.EmitterImpl emitterImpl;
-    private Map<String, Handler> handlers = new HashMap<>();
-    private Gson converter = new Gson();
 
-    public MessageBroker(Socket socket, SocketServer.EmitterImpl emitterImpl, Map<Class, Map<String, Controller>> controllers) {
+    private final Socket socket;
+    private final SocketContext context;
+    private final Map<String, Handler> handlers = new HashMap<>();
+    private final Gson converter = new Gson();
+
+    public MessageBroker(Socket socket, SocketContext ctx, Map<Class, Map<String, Controller>> controllers) {
         this.socket = socket;
-        this.emitterImpl = emitterImpl;
+        this.context = ctx;
         initHandlers(controllers);
     }
 
@@ -62,7 +63,7 @@ public class MessageBroker implements Runnable {
             boolean isConnectionValid = handleHandshake(in, out);
             if (!isConnectionValid) {
                 System.out.println("Invalid handshake attempt was received. Thread broken.");
-                emitterImpl.reply("EOF", null);
+                context.reply("EOF", null);
                 return;
             }
             
@@ -78,6 +79,7 @@ public class MessageBroker implements Runnable {
                     if (msg.equals("EOF")) {
                         break;
                     }
+
                     System.out.println(msg);
                     processMessage(msg);
                     stream = new byte[BUFFER_SIZE];
@@ -91,7 +93,7 @@ public class MessageBroker implements Runnable {
             e.printStackTrace();
         } finally {
             // TODO: make it nicer
-            emitterImpl.reply("EOF", null);
+            context.reply("EOF", null);
         }
     }
 
@@ -139,7 +141,7 @@ public class MessageBroker implements Runnable {
         }
         String route = fullMsg[0];
         String payload = fullMsg[1];
-        handlers.get(route).handle(emitterImpl, payload);
+        handlers.get(route).handle(context, payload);
     }
 
     private final class Handler {
@@ -154,11 +156,11 @@ public class MessageBroker implements Runnable {
             this.type = type;
         }
 
-        void handle(SocketServer.EmitterImpl emitterImpl, String rawInput) {
+        void handle(SocketContext context, String rawInput) {
             // TODO: wrong input needs to be handled
             Object payload = type == String.class ? rawInput : converter.fromJson(rawInput, type);
             try {
-                method.invoke(obj, emitterImpl, payload);
+                method.invoke(obj, context, payload);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 System.out.println("Handler call failed: " + method.getName());
             }

@@ -1,22 +1,21 @@
 package com.danielcs.socketserver.controllers;
 
-import com.danielcs.socketserver.Emitter;
-import com.danielcs.socketserver.SocketController;
-import com.danielcs.socketserver.SocketHandler;
+import com.danielcs.socketserver.*;
 
 @SocketController
 public class Test {
 
     @SocketHandler(route = "route1")
-    public void test1(Emitter out, String payload) {
+    public void test1(SocketContext ctx, String payload) {
         System.out.println("Received payload: " + payload);
-        out.reply("route1", payload);
+        ctx.joinRoom("KEK");
+        ctx.reply("route1", "Current user: " + Thread.currentThread().getName());
     }
 
     @SocketHandler(route = "route2", type = Person.class)
-    public void test2(Emitter out, Person person) {
+    public void test2(SocketContext ctx, Person person) {
         System.out.println("Received person: " + person);
-        out.emit("route2", person);
+        ctx.emit("route2", person);
     }
 
 }
