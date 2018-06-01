@@ -1,16 +1,27 @@
 package com.danielcs.socketserver;
 
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 
-public abstract class UserSession {
+public final class UserSession {
 
     private static int numberOfUsers;
 
     private final int id;
     private final Set<String> rooms = new HashSet<>();
+    private final Map<String, Object> properties = new HashMap<>();
+    private final ArrayBlockingQueue<String> messages = new ArrayBlockingQueue<>(2);
 
     UserSession() {
         id = numberOfUsers++;
+    }
+
+    void sendMessage(String msg) {
+        messages.offer(msg);
+    }
+
+    ArrayBlockingQueue<String> getMessages() {
+        return messages;
     }
 
     void joinRoom(String name) {
@@ -19,6 +30,10 @@ public abstract class UserSession {
 
     void leaveRoom(String name) {
         rooms.remove(name);
+    }
+
+    boolean isInRoom(String name) {
+        return rooms.contains(name);
     }
 
     public static int getNumberOfUsers() {
@@ -31,6 +46,23 @@ public abstract class UserSession {
 
     public Set<String> getRooms() {
         return Collections.unmodifiableSet(rooms);
+    }
+
+    public Map<String, Object> getProperties() {
+        return Collections.unmodifiableMap(properties);
+    }
+
+    public void clearProperties() {
+        properties.clear();
+    }
+
+    public void setProperty(String name, Object property) {
+        properties.put(name, property);
+    }
+
+    public Object getProperty(String name) {
+        // TODO: may need to error handle here
+        return properties.get(name);
     }
 
     @Override

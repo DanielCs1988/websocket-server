@@ -7,14 +7,22 @@ class Room {
     private static final Set<Room> rooms = new HashSet<>();
 
     private final String name;
-    private final Set<Integer> users = new HashSet<>();
+    private final Set<UserSession> users = new HashSet<>();
 
     private Room(String name) {
         this.name = name;
     }
 
-    private boolean userInRoom(int userId) {
-        return users.stream().anyMatch(user -> user == userId);
+    private boolean userInRoom(UserSession user) {
+        return users.contains(user);
+    }
+
+    static Set<UserSession> getUsersInRoom(String name) {
+        return rooms.stream()
+                .filter(r -> r.name.equals(name))
+                .findFirst()
+                .map(r -> r.users)
+                .orElse(null);
     }
 
     private static Room findOrCreateRoom(String name) {
@@ -29,20 +37,18 @@ class Room {
     }
 
     static void joinRoom(UserSession user, String name) {
-        findOrCreateRoom(name).users.add(user.getId());
+        findOrCreateRoom(name).users.add(user);
         user.joinRoom(name);
-        System.out.println(user.getRooms());
-        System.out.println(rooms);
     }
 
     static void leaveRoom(UserSession user, String name) {
-        findOrCreateRoom(name).users.remove(user.getId());
+        findOrCreateRoom(name).users.remove(user);
         user.leaveRoom(name);
     }
 
     static void leaveCurrentRooms(UserSession user) {
         rooms.stream()
-                .filter(room -> room.userInRoom(user.getId()))
+                .filter(room -> room.userInRoom(user))
                 .forEach(room -> leaveRoom(user, room.name));
     }
 

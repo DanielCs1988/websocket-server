@@ -2,7 +2,6 @@ package com.danielcs.socketserver;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.ArrayBlockingQueue;
 
@@ -11,11 +10,11 @@ import static com.danielcs.socketserver.Utils.encodeSocketStream;
 public class MessageSender implements Runnable {
 
     private final Socket socket;
-    private ArrayBlockingQueue<String> messages;
+    private UserSession user;
 
-    public MessageSender(Socket socket, ArrayBlockingQueue<String> messages) {
+    public MessageSender(Socket socket, UserSession user) {
         this.socket = socket;
-        this.messages = messages;
+        this.user = user;
     }
 
     @Override
@@ -23,6 +22,7 @@ public class MessageSender implements Runnable {
         try (OutputStream out = socket.getOutputStream()) {
 
             String msg;
+            ArrayBlockingQueue<String> messages = user.getMessages();
             while (!(msg = messages.take()).startsWith("EOF")) {
                 out.write(encodeSocketStream(msg));
             }

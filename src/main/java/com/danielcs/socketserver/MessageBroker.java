@@ -1,6 +1,7 @@
 package com.danielcs.socketserver;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 
 import javax.xml.bind.DatatypeConverter;
 import java.io.*;
@@ -19,12 +20,13 @@ import static com.danielcs.socketserver.Utils.decodeSocketStream;
 public class MessageBroker implements Runnable {
 
     private static final int BUFFER_SIZE = 4096;
-    static final String SEPARATOR = "×";
+    static final String SEPARATOR = "&";
 
     private final Socket socket;
     private final SocketContext context;
     private final Map<String, Handler> handlers = new HashMap<>();
     private final Gson converter = new Gson();
+    private final MessageFormat msgFormatter = new BasicMessageFormat();  // TODO: make it a plugin
 
     public MessageBroker(Socket socket, SocketContext ctx, Map<Class, Map<String, Controller>> controllers) {
         this.socket = socket;
@@ -79,8 +81,6 @@ public class MessageBroker implements Runnable {
                     if (msg.equals("EOF")) {
                         break;
                     }
-
-                    System.out.println(msg);
                     processMessage(msg);
                     stream = new byte[BUFFER_SIZE];
                 }
@@ -134,14 +134,14 @@ public class MessageBroker implements Runnable {
     }
 
     private void processMessage(String msg) {
-        String[] fullMsg = msg.split(SEPARATOR);
-        if (fullMsg.length != 2) {
-            System.out.println("Received a faulty message.");
+        // TODO: structural weakness, it should handle a nested object instead of special string
+        try {
+            msgFormatter.processMessage(msg);
+        } catch (IllegalArgumentException e) {
+            System.out.println(e.getMessage());
             return;
         }
-        String route = fullMsg[0];
-        String payload = fullMsg[1];
-        handlers.get(route).handle(context, payload);
+        handlers.get(msgFormatter.getRoute()).handle(context, msgFormatter.getRawPayload());
     }
 
     private final class Handler {
@@ -157,12 +157,13 @@ public class MessageBroker implements Runnable {
         }
 
         void handle(SocketContext context, String rawInput) {
-            // TODO: wrong input needs to be handled
-            Object payload = type == String.class ? rawInput : converter.fromJson(rawInput, type);
             try {
+                Object payload = type == String.class ? rawInput : converter.fromJson(rawInput, type);
                 method.invoke(obj, context, payload);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 System.out.println("Handler call failed: " + method.getName());
+            } catch (JsonSyntaxException ee) {
+                System.out.println("JSON format was invalid.");
             }
         }
     }

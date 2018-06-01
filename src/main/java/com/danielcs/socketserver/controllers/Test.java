@@ -5,17 +5,20 @@ import com.danielcs.socketserver.*;
 @SocketController
 public class Test {
 
-    @SocketHandler(route = "route1")
+    @SocketHandler(route = "name")
     public void test1(SocketContext ctx, String payload) {
-        System.out.println("Received payload: " + payload);
-        ctx.joinRoom("KEK");
-        ctx.reply("route1", "Current user: " + Thread.currentThread().getName());
+        ctx.getUser().setProperty("name", payload);
+        ctx.reply("name", "Current user: " + ctx.getUser().getId() + ", " + ctx.getUser().getProperty("name"));
     }
 
-    @SocketHandler(route = "route2", type = Person.class)
+    @SocketHandler(route = "chat")
+    public void sendMessage(SocketContext ctx, String target) {
+        ctx.sendToUser("name", target, "chat", "LEKEK BRO");
+    }
+
+    @SocketHandler(route = "object", type = Person.class)
     public void test2(SocketContext ctx, Person person) {
-        System.out.println("Received person: " + person);
-        ctx.emit("route2", person);
+        ctx.emit("object", person);
     }
 
 }
