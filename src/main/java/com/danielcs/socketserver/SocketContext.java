@@ -2,6 +2,7 @@ package com.danielcs.socketserver;
 
 public interface SocketContext {
     UserSession getUser();
+    boolean connected();
     void reply(String path, Object payload);
     void emit(String path, Object payload);
     void emitToRoom(String room, String path, Object payload);
@@ -10,4 +11,5 @@ public interface SocketContext {
     void joinRoom(String name);
     void leaveRoom(String name);
     void leaveAllRooms();
+    void disconnect();
 }

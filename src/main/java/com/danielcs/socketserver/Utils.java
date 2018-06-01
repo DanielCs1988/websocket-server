@@ -5,6 +5,10 @@ import java.io.UnsupportedEncodingException;
 class Utils {
 
     static String decodeSocketStream(byte[] stream, int len) throws UnsupportedEncodingException {
+        if (stream[0] == -120) {
+            return null;
+        }
+
         String msg;
         int rMaskIndex = 2;
         byte data = stream[1];

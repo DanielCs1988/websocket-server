@@ -26,7 +26,7 @@ public class MessageSender implements Runnable {
             while (!(msg = messages.take()).startsWith("EOF")) {
                 out.write(encodeSocketStream(msg));
             }
-            System.out.println(socket.getInetAddress() + " output module stopped normally.");
+            System.out.println("Output module connection broken from client side.");
 
         } catch (IOException | InterruptedException e) {
             System.out.println("Output module connection lost.");

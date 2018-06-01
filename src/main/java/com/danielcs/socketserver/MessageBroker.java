@@ -57,15 +57,13 @@ public class MessageBroker implements Runnable {
     public void run() {
         try (
                 InputStream is = socket.getInputStream();
-                InputStreamReader isr = new InputStreamReader(is);
-                BufferedReader in = new BufferedReader(isr);
+                BufferedReader in = new BufferedReader(new InputStreamReader(is));
                 OutputStream out = socket.getOutputStream()
         ) {
 
             boolean isConnectionValid = handleHandshake(in, out);
             if (!isConnectionValid) {
                 System.out.println("Invalid handshake attempt was received. Thread broken.");
-                context.reply("EOF", null);
                 return;
             }
             
@@ -74,14 +72,15 @@ public class MessageBroker implements Runnable {
             int len;
             String msg;
 
-            while (true) {
+            while (context.connected()) {
                 len = is.read(stream);
                 if (len != -1) {
                     msg = decodeSocketStream(stream, len);
-                    if (msg.equals("EOF")) {
+                    if (msg == null || msg.equals("EOF")) {
                         break;
                     }
                     processMessage(msg);
+                    // TODO: watch out for buffer overflow
                     stream = new byte[BUFFER_SIZE];
                 }
             }
@@ -89,11 +88,8 @@ public class MessageBroker implements Runnable {
 
         } catch (IOException e) {
             System.out.println("Messagebroker connection lost.");
-            System.out.println(socket.isClosed());
-            e.printStackTrace();
         } finally {
-            // TODO: make it nicer
-            context.reply("EOF", null);
+            context.getUser().sendMessage("EOF");
         }
     }
 

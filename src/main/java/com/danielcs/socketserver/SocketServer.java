@@ -84,12 +84,17 @@ public class SocketServer {
 
     class SocketContextImpl implements SocketContext {
         // TODO: I should pull this out to a separate class
-
+        private boolean connected = true;
         private final Gson converter = new Gson();
         private final UserSession user;
 
         SocketContextImpl(UserSession user) {
             this.user = user;
+        }
+
+        @Override
+        public boolean connected() {
+            return connected;
         }
 
         @Override
@@ -149,6 +154,11 @@ public class SocketServer {
             users.stream()
                     .filter(usr -> usr.getProperty(propertyName).equals(propertyValue))
                     .forEach(usr -> usr.sendMessage(msg));
+        }
+
+        @Override
+        public void disconnect() {
+            connected = false;
         }
     }
 }
