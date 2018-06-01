@@ -1,10 +1,8 @@
 package com.danielcs.socketserver;
 
-public class BasicMessageFormat implements MessageFormat {
+public class BasicMessageFormat extends MessageFormat {
 
     private static final String SEPARATOR = "&";
-    private String route;
-    private String payload;
 
     @Override
     public void processMessage(String message) throws IllegalArgumentException {
@@ -14,15 +12,5 @@ public class BasicMessageFormat implements MessageFormat {
         }
         route = fullMsg[0];
         payload = fullMsg[1];
-    }
-
-    @Override
-    public String getRoute() {
-        return route;
-    }
-
-    @Override
-    public String getRawPayload() {
-        return payload;
     }
 }

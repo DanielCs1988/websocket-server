@@ -1,7 +1,16 @@
 package com.danielcs.socketserver;
 
-public interface MessageFormat {
-    void processMessage(String message) throws IllegalArgumentException;
-    String getRoute();
-    String getRawPayload();
+public abstract class MessageFormat {
+
+    protected String route;
+    protected String payload;
+
+    public String getRoute() {
+        return route;
+    }
+    public String getRawPayload() {
+        return payload;
+    }
+
+    public abstract void processMessage(String message) throws IllegalArgumentException;
 }
