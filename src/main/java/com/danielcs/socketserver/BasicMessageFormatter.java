@@ -1,6 +1,6 @@
 package com.danielcs.socketserver;
 
-public class BasicMessageFormatter extends MessageFormatter {
+class BasicMessageFormatter extends MessageFormatter {
 
     private static final String SEPARATOR = "&";
 

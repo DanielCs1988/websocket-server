@@ -1,5 +1,6 @@
 package com.danielcs.socketserver;
 
+import com.danielcs.socketserver.annotations.*;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 import org.reflections.scanners.TypeAnnotationsScanner;

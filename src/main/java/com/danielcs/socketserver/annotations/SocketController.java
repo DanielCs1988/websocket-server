@@ -1,4 +1,4 @@
-package com.danielcs.socketserver;
+package com.danielcs.socketserver.annotations;
 
 import java.lang.annotation.*;
 

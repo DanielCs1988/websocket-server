@@ -1,6 +1,8 @@
 package com.danielcs.socketserver.controllers;
 
 import com.danielcs.socketserver.*;
+import com.danielcs.socketserver.annotations.SocketController;
+import com.danielcs.socketserver.annotations.SocketHandler;
 
 @SocketController
 public class Test {
