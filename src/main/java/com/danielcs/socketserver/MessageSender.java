@@ -5,7 +5,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.concurrent.ArrayBlockingQueue;
 
-import static com.danielcs.socketserver.Utils.encodeSocketStream;
+import static com.danielcs.socketserver.SocketTransactionUtils.encodeSocketStream;
 
 class MessageSender implements Runnable {
 

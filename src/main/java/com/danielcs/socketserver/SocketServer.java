@@ -19,7 +19,7 @@ public class SocketServer {
     private final String CLASSPATH;
 
     private final ExecutorService connectionPool;
-    // MAY work better with a MAP, too many lookups
+    // TODO: MAY work better with a MAP, too many lookups
     private final Set<UserSession> users = Collections.synchronizedSet(new HashSet<>());
     private final Map<Class, Map<String, Controller>> controllers = new HashMap<>();
 

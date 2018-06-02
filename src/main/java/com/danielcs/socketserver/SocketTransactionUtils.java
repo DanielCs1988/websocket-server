@@ -1,8 +1,17 @@
 package com.danielcs.socketserver;
 
+import javax.xml.bind.DatatypeConverter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-class Utils {
+class SocketTransactionUtils {
 
     static String decodeSocketStream(byte[] stream, int len) throws UnsupportedEncodingException {
         if (stream[0] == -120) {
@@ -72,5 +81,36 @@ class Utils {
         System.arraycopy(frame, 0, reply, 0, frameCount);
         System.arraycopy(rawData, 0, reply, frameCount, rawData.length);
         return reply;
+    }
+
+    // TODO: verify that this is thread safe; NOTE: those mutables are thread's own specific references
+    static boolean handleHandshake(InputStream in, OutputStream out) throws IOException {
+        String msg = new Scanner(in,"UTF-8").useDelimiter("\\r\\n\\r\\n").next();
+        if (msg.startsWith("GET")) {
+            Matcher match = Pattern.compile("Sec-WebSocket-Key: (.*)").matcher(msg);
+            if (!match.find()) {
+                return false;
+            }
+            byte[] response;
+            try {
+                response = ("HTTP/1.1 101 Switching Protocols\r\n"
+                        + "Connection: Upgrade\r\n"
+                        + "Upgrade: websocket\r\n"
+                        + "Sec-WebSocket-Accept: "
+                        + DatatypeConverter.printBase64Binary(
+                        MessageDigest
+                                .getInstance("SHA-1")
+                                .digest((match.group(1) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+                                        .getBytes("UTF-8"))
+                )
+                        + "\r\n\r\n").getBytes("UTF-8");
+            } catch (UnsupportedEncodingException | NoSuchAlgorithmException e) {
+                System.out.println("Could not encode handshake.");
+                return false;
+            }
+            out.write(response, 0, response.length);
+            return true;
+        }
+        return false;
     }
 }
