@@ -9,12 +9,11 @@ public class Test {
     public void test1(SocketContext ctx, String payload) {
         ctx.getUser().setProperty("name", payload);
         ctx.reply("name", "Current user: " + ctx.getUser().getId() + ", " + ctx.getUser().getProperty("name"));
-        ctx.disconnect();
     }
 
     @SocketHandler(route = "chat")
     public void sendMessage(SocketContext ctx, String target) {
-        ctx.sendToUser("name", target, "chat", "LEKEK BRO");
+        ctx.emit("chat", "massive KEK");
     }
 
     @SocketHandler(route = "object", type = Person.class)

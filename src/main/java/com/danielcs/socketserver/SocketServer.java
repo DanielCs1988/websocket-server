@@ -1,6 +1,5 @@
 package com.danielcs.socketserver;
 
-import com.google.gson.Gson;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 import org.reflections.scanners.TypeAnnotationsScanner;
@@ -53,20 +52,19 @@ public class SocketServer {
     }
 
     public void start() {
-
         try (ServerSocket server = new ServerSocket(PORT)) {
 
             while (true) {
                 Socket client = server.accept();
+
                 UserSession user = new UserSession();
                 users.add(user);
-                SocketContext ctx = new SocketContextImpl(user);
-
+                SocketContext ctx = new BasicContext(user, users);
                 MessageSender handler = new MessageSender(client, user);
                 MessageBroker broker = new MessageBroker(client, ctx, controllers);
+
                 connectionPool.execute(handler);
                 connectionPool.execute(broker);
-
                 System.out.println("Client connected: " + user);
             }
 
@@ -75,109 +73,5 @@ public class SocketServer {
         }
         connectionPool.shutdownNow();
         System.out.println("Server closed down.");
-    }
-
-    public static void main(String[] args) {
-        SocketServer server = new SocketServer(5500, "com.danielcs.socketserver.controllers", 10);
-        server.start();
-    }
-
-    class SocketContextImpl implements SocketContext {
-        // TODO: I should pull this out to a separate class
-        private boolean connected = true;
-        private final Gson converter = new Gson();
-        private final UserSession user;
-
-        SocketContextImpl(UserSession user) {
-            this.user = user;
-        }
-
-        @Override
-        public boolean connected() {
-            return connected;
-        }
-
-        @Override
-        public UserSession getUser() {
-            return user;
-        }
-
-        @Override
-        public void reply(String path, Object payload) {
-            // TODO: extract message encoding, maybe also: handle string payload
-            // TODO: separator was outsourced to the MessageFormat object
-            String msg = path + MessageBroker.SEPARATOR + converter.toJson(payload);
-            user.sendMessage(msg);
-        }
-
-        @Override
-        public void emit(String path, Object payload) {
-            // TODO: when separated, this method could access users by providing a method in SocketServer
-            String msg = path + MessageBroker.SEPARATOR + converter.toJson(payload);
-            users.forEach(user -> user.sendMessage(msg));
-        }
-
-        @Override
-        public void joinRoom(String name) {
-            Room.joinRoom(user, name);
-        }
-
-        @Override
-        public void leaveRoom(String name) {
-            Room.leaveRoom(user, name);
-        }
-
-        @Override
-        public void leaveAllRooms() {
-            Room.leaveCurrentRooms(user);
-        }
-
-        @Override
-        public void emitToRoom(String room, String path, Object payload) {
-            // TODO: get rid of internal double conversion
-            String msg = path + MessageBroker.SEPARATOR + converter.toJson(payload);
-            Room.getUsersInRoom(room).forEach(user -> user.sendMessage(msg));
-        }
-
-        @Override
-        public void sendToUser(int userId, String path, Object payload) {
-            String msg = path + MessageBroker.SEPARATOR + converter.toJson(payload);
-            users.stream()
-                    .filter(usr -> usr.getId() == userId)
-                    .findFirst()
-                    .ifPresent(usr -> usr.sendMessage(msg));
-        }
-
-        @Override
-        public void sendToUser(String propertyName, String propertyValue, String path, Object payload) {
-            String msg = path + MessageBroker.SEPARATOR + converter.toJson(payload);
-            users.stream()
-                    .filter(usr -> usr.getProperty(propertyName).equals(propertyValue))
-                    .forEach(usr -> usr.sendMessage(msg));
-        }
-
-        @Override
-        public void disconnect() {
-            connected = false;
-        }
-    }
-}
-
-class Controller {
-
-    private Method method;
-    private Class type;
-
-    public Controller(Method method, Class type) {
-        this.method = method;
-        this.type = type;
-    }
-
-    public Method getMethod() {
-        return method;
-    }
-
-    public Class getType() {
-        return type;
     }
 }

@@ -7,7 +7,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 import static com.danielcs.socketserver.Utils.encodeSocketStream;
 
-public class MessageSender implements Runnable {
+class MessageSender implements Runnable {
 
     private final Socket socket;
     private UserSession user;

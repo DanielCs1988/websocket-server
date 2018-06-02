@@ -17,16 +17,15 @@ import java.util.regex.Pattern;
 
 import static com.danielcs.socketserver.Utils.decodeSocketStream;
 
-public class MessageBroker implements Runnable {
+class MessageBroker implements Runnable {
 
     private static final int BUFFER_SIZE = 4096;
-    static final String SEPARATOR = "&";
 
     private final Socket socket;
     private final SocketContext context;
     private final Map<String, Handler> handlers = new HashMap<>();
     private final Gson converter = new Gson();
-    private final MessageFormat msgFormatter = new BasicMessageFormat();  // TODO: make it a plugin
+    private final MessageFormatter msgFormatter = new BasicMessageFormatter();  // TODO: make it a plugin
 
     public MessageBroker(Socket socket, SocketContext ctx, Map<Class, Map<String, Controller>> controllers) {
         this.socket = socket;
