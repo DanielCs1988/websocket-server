@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Scanner;
@@ -12,6 +14,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 class SocketTransactionUtils {
+
+    private static Method authGuard;
+
+    static void setAuthGuard(Method authGuard) {
+        SocketTransactionUtils.authGuard = authGuard;
+    }
+
+    static boolean authGuardPresent() {
+        return authGuard != null;
+    }
 
     static String decodeSocketStream(byte[] stream, int len) throws UnsupportedEncodingException {
         if (stream[0] == -120) {
@@ -83,7 +95,6 @@ class SocketTransactionUtils {
         return reply;
     }
 
-    // TODO: verify that this is thread safe; NOTE: those mutables are thread's own specific references
     static boolean handleHandshake(InputStream in, OutputStream out) throws IOException {
         String msg = new Scanner(in,"UTF-8").useDelimiter("\\r\\n\\r\\n").next();
         if (msg.startsWith("GET")) {
@@ -112,5 +123,14 @@ class SocketTransactionUtils {
             return true;
         }
         return false;
+    }
+
+    static boolean intercept(String token) {
+        try {
+            return (Boolean) authGuard.invoke(null, token);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            System.out.println("Authguard method could not be called!");
+            return false;
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.danielcs.socketserver.controllers;
 
 import com.danielcs.socketserver.*;
+import com.danielcs.socketserver.annotations.AuthGuard;
 import com.danielcs.socketserver.annotations.SocketController;
 import com.danielcs.socketserver.annotations.SocketHandler;
 
@@ -21,6 +22,11 @@ public class Test {
     @SocketHandler(route = "object", type = Person.class)
     public void test2(SocketContext ctx, Person person) {
         ctx.emit("object", person);
+    }
+
+    @AuthGuard
+    public static boolean fakeValidator(String token) {
+        return true;
     }
 
 }

@@ -76,6 +76,8 @@ class MessageBroker implements Runnable {
             byte[] stream = new byte[BUFFER_SIZE];
             int inputLength;
             String msg;
+            boolean validationNeeded = SocketTransactionUtils.authGuardPresent();
+            System.out.println(validationNeeded);
 
             while (context.connected()) {
                 inputLength = inputStream.read(stream);
@@ -84,8 +86,16 @@ class MessageBroker implements Runnable {
                     if (msg == null || msg.equals("EOF")) {
                         break;
                     }
-                    processMessage(msg);
-                    // TODO: is there an alternative to resetting buffer?
+                    if (validationNeeded) {
+                        boolean authenticationIsValid = SocketTransactionUtils.intercept(msg);
+                        if (!authenticationIsValid) {
+                            break;
+                        }
+                        validationNeeded = false;
+                    } else {
+                        System.out.println("Processing " + msg);
+                        processMessage(msg);
+                    }
                     stream = new byte[BUFFER_SIZE];
                 }
             }
