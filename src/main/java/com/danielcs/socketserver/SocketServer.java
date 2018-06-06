@@ -16,7 +16,7 @@ import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class SocketServer {
+public class SocketServer implements Server {
 
     private final int PORT;
     private final String CLASSPATH;
@@ -25,6 +25,13 @@ public class SocketServer {
     // TODO: MAY work better with a MAP, too many lookups
     private final Set<UserSession> users = Collections.synchronizedSet(new HashSet<>());
     private final Map<Class, Map<String, Controller>> controllers = new HashMap<>();
+
+    public SocketServer(int port, String classpath) {
+        this.PORT = port;
+        this.CLASSPATH = classpath;
+        connectionPool = Executors.newFixedThreadPool(20);
+        setupControllers();
+    }
 
     public SocketServer(int port, String classPath, int poolSize) {
         this.PORT = port;
