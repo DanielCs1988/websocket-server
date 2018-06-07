@@ -54,8 +54,10 @@ class MessageBroker implements Runnable {
             System.out.println(e.getMessage());
             return;
         }
-        handlers.get(msgFormatter.getRoute())
-                .handle(context, msgFormatter.getRawPayload());
+        Handler handler = handlers.get(msgFormatter.getRoute());
+        if (handler != null) {
+            handler.handle(context, msgFormatter.getRawPayload());
+        }
     }
 
     @Override
@@ -77,7 +79,6 @@ class MessageBroker implements Runnable {
             int inputLength;
             String msg;
             boolean validationNeeded = SocketTransactionUtils.authGuardPresent();
-            System.out.println(validationNeeded);
 
             while (context.connected()) {
                 inputLength = inputStream.read(stream);
@@ -93,7 +94,6 @@ class MessageBroker implements Runnable {
                         }
                         validationNeeded = false;
                     } else {
-                        System.out.println("Processing " + msg);
                         processMessage(msg);
                     }
                     stream = new byte[BUFFER_SIZE];

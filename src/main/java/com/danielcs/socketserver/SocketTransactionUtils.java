@@ -59,7 +59,13 @@ class SocketTransactionUtils {
 
     @SuppressWarnings("ShiftOutOfRange")
     static byte[] encodeSocketStream(String msg) {
-        byte[] rawData = msg.getBytes();
+        byte[] rawData = new byte[0];
+        try {
+            rawData = msg.getBytes("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            System.out.println("Could not encode stream to UTF-8!");
+            rawData = msg.getBytes();
+        }
 
         int frameCount;
         byte[] frame = new byte[10];

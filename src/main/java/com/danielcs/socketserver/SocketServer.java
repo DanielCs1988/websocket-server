@@ -83,7 +83,7 @@ public class SocketServer implements Server {
 
                 connectionPool.execute(handler);
                 connectionPool.execute(broker);
-                System.out.println("Client connected: " + user);
+                System.out.println("Client connected.");
             }
 
         } catch (IOException e) {
