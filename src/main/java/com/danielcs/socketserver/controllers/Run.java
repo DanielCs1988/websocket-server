@@ -12,7 +12,7 @@ import java.io.UnsupportedEncodingException;
 
 public class Run {
 
-    @AuthGuard
+    /*@AuthGuard
     public static boolean processTokenValidity(String token) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(System.getenv("SECRET_KEY"));
@@ -28,7 +28,7 @@ public class Run {
             System.out.println("Received invalid token!");
         }
         return false;
-    }
+    }*/
 
     public static void main(String[] args) {
         Server server = new SocketServer(8080, "com.danielcs.socketserver.controllers");

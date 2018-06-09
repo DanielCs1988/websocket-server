@@ -2,6 +2,7 @@ package com.danielcs.socketserver;
 
 import com.google.gson.Gson;
 
+import java.util.Map;
 import java.util.Set;
 
 class BasicContext implements SocketContext {
@@ -10,6 +11,7 @@ class BasicContext implements SocketContext {
     private final Gson converter = new Gson();
     private final UserSession user;
     private final Set<UserSession> users;
+    private String currentRoute;
 
     BasicContext(UserSession user, Set<UserSession> users) {
         this.user = user;
@@ -22,14 +24,16 @@ class BasicContext implements SocketContext {
         return f.assembleMessage();
     }
 
-    @Override
-    public boolean connected() {
-        return connected;
+    void setCurrentRoute(String currentRoute) {
+        this.currentRoute = currentRoute;
     }
 
-    @Override
-    public UserSession getUser() {
+    UserSession getUser() {
         return user;
+    }
+
+    boolean connected() {
+        return connected;
     }
 
     @Override
@@ -39,9 +43,48 @@ class BasicContext implements SocketContext {
     }
 
     @Override
+    public void reply(Object payload) {
+        reply(currentRoute, payload);
+    }
+
+    @Override
     public void emit(String path, Object payload) {
         String msg = getFormattedMessage(path, payload);
         users.forEach(user -> user.sendMessage(msg));
+    }
+
+    @Override
+    public void emitToRoom(String room, String path, Object payload) {
+        String msg = getFormattedMessage(path, payload);
+        Room.getUsersInRoom(room).forEach(user -> user.sendMessage(msg));
+    }
+
+    @Override
+    public void sendToUser(String propertyName, Object propertyValue, String path, Object payload) {
+        String msg = getFormattedMessage(path, payload);
+        users.stream()
+                .filter(usr -> usr.getProperty(propertyName).equals(propertyValue))
+                .forEach(usr -> usr.sendMessage(msg));
+    }
+
+    @Override
+    public Object getProperty(String name) {
+        return user.getProperty(name);
+    }
+
+    @Override
+    public Map<String, Object> getProperties() {
+        return user.getProperties();
+    }
+
+    @Override
+    public void setProperty(String name, Object property) {
+        user.setProperty(name, property);
+    }
+
+    @Override
+    public void clearProperties() {
+        user.clearProperties();
     }
 
     @Override
@@ -55,31 +98,13 @@ class BasicContext implements SocketContext {
     }
 
     @Override
+    public Set<String> getCurrentRooms() {
+        return user.getRooms();
+    }
+
+    @Override
     public void leaveAllRooms() {
         Room.leaveCurrentRooms(user);
-    }
-
-    @Override
-    public void emitToRoom(String room, String path, Object payload) {
-        String msg = getFormattedMessage(path, payload);
-        Room.getUsersInRoom(room).forEach(user -> user.sendMessage(msg));
-    }
-
-    @Override
-    public void sendToUser(int userId, String path, Object payload) {
-        String msg = getFormattedMessage(path, payload);
-        users.stream()
-                .filter(usr -> usr.getId() == userId)
-                .findFirst()
-                .ifPresent(usr -> usr.sendMessage(msg));
-    }
-
-    @Override
-    public void sendToUser(String propertyName, String propertyValue, String path, Object payload) {
-        String msg = getFormattedMessage(path, payload);
-        users.stream()
-                .filter(usr -> usr.getProperty(propertyName).equals(propertyValue))
-                .forEach(usr -> usr.sendMessage(msg));
     }
 
     @Override

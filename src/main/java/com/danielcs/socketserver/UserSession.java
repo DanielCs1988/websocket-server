@@ -5,15 +5,20 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 public final class UserSession {
 
+    private final static int MESSAGE_QUEUE_CAPACITY = 5;
     private static int numberOfUsers;
 
     private final int id;
     private final Set<String> rooms = new HashSet<>();
     private final Map<String, Object> properties = new HashMap<>();
-    private final ArrayBlockingQueue<String> messages = new ArrayBlockingQueue<>(2);
+    private final ArrayBlockingQueue<String> messages = new ArrayBlockingQueue<>(MESSAGE_QUEUE_CAPACITY);
 
     UserSession() {
         id = numberOfUsers++;
+    }
+
+    public static int getNumberOfUsers() {
+        return numberOfUsers;
     }
 
     void sendMessage(String msg) {
@@ -36,32 +41,27 @@ public final class UserSession {
         return rooms.contains(name);
     }
 
-    public static int getNumberOfUsers() {
-        return numberOfUsers;
-    }
-
-    public int getId() {
+    int getId() {
         return id;
     }
 
-    public Set<String> getRooms() {
+    Set<String> getRooms() {
         return Collections.unmodifiableSet(rooms);
     }
 
-    public Map<String, Object> getProperties() {
+    Map<String, Object> getProperties() {
         return Collections.unmodifiableMap(properties);
     }
 
-    public void clearProperties() {
+    void clearProperties() {
         properties.clear();
     }
 
-    public void setProperty(String name, Object property) {
+    void setProperty(String name, Object property) {
         properties.put(name, property);
     }
 
-    public Object getProperty(String name) {
-        // TODO: may need to error handle here
+    Object getProperty(String name) {
         return properties.get(name);
     }
 

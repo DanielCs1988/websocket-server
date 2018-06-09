@@ -71,13 +71,14 @@ public class SocketServer implements Server {
 
     public void start() {
         try (ServerSocket server = new ServerSocket(PORT)) {
+            System.out.println("WebSocket server started on port " + PORT + ". Listening for connections...");
 
             while (true) {
                 Socket client = server.accept();
 
                 UserSession user = new UserSession();
                 users.add(user);
-                SocketContext ctx = new BasicContext(user, users);
+                BasicContext ctx = new BasicContext(user, users);
                 MessageSender handler = new MessageSender(client, user);
                 MessageBroker broker = new MessageBroker(client, ctx, controllers);
 

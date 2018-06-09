@@ -15,12 +15,12 @@ class MessageBroker implements Runnable {
     private static final int BUFFER_SIZE = 4096;
 
     private final Socket socket;
-    private final SocketContext context;
+    private final BasicContext context;
     private final Map<String, Handler> handlers = new HashMap<>();
     private final Gson converter = new Gson();
     private final MessageFormatter msgFormatter = new BasicMessageFormatter();  // TODO: make it a plugin
 
-    public MessageBroker(Socket socket, SocketContext ctx, Map<Class, Map<String, Controller>> controllers) {
+    public MessageBroker(Socket socket, BasicContext ctx, Map<Class, Map<String, Controller>> controllers) {
         this.socket = socket;
         this.context = ctx;
         initHandlers(controllers);
@@ -56,6 +56,7 @@ class MessageBroker implements Runnable {
         }
         Handler handler = handlers.get(msgFormatter.getRoute());
         if (handler != null) {
+            context.setCurrentRoute(msgFormatter.getRoute());
             handler.handle(context, msgFormatter.getRawPayload());
         }
     }

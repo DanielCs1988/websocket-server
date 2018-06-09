@@ -9,24 +9,24 @@ import com.danielcs.socketserver.annotations.SocketHandler;
 public class Test {
 
     @SocketHandler(route = "name")
-    public void test1(SocketContext ctx, String payload) {
-        ctx.getUser().setProperty("name", payload);
-        ctx.reply("name", "Current user: " + ctx.getUser().getId() + ", " + ctx.getUser().getProperty("name"));
+    public void echoName(SocketContext ctx, String payload) {
+        ctx.setProperty("name", payload);
+        ctx.reply("name", "Current user: " + ctx.getProperty("name"));
     }
 
     @SocketHandler(route = "chat")
-    public void sendMessage(SocketContext ctx, String target) {
-        ctx.emit("chat", "massive KEK");
+    public void sendMessage(SocketContext ctx, String msg) {
+        System.out.println(msg);
+        ctx.emit("chat", msg);
     }
 
     @SocketHandler(route = "object", type = Person.class)
-    public void test2(SocketContext ctx, Person person) {
+    public void sendObject(SocketContext ctx, Person person) {
         ctx.emit("object", person);
     }
 
-    @AuthGuard
-    public static boolean fakeValidator(String token) {
-        return true;
+    @SocketHandler(route = "ingredients/get")
+    public void getIngredients(SocketContext ctx, String msg) {
+        ctx.reply(Ingredient.ingredients);
     }
-
 }
