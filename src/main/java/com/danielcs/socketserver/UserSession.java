@@ -77,4 +77,12 @@ public final class UserSession {
     public int hashCode() {
         return Objects.hash(id);
     }
+
+    @Override
+    public String toString() {
+        return "UserSession{" +
+                "id=" + id +
+                ", properties=" + properties +
+                '}';
+    }
 }

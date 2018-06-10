@@ -14,6 +14,11 @@ public class Test {
         ctx.reply("name", "Current user: " + ctx.getProperty("name"));
     }
 
+    @SocketHandler(route = "private")
+    public void sendToTest(SocketContext ctx, String target) {
+        ctx.sendToUser("name", target, "private", "LEKEK");
+    }
+
     @SocketHandler(route = "chat")
     public void sendMessage(SocketContext ctx, String msg) {
         System.out.println(msg);

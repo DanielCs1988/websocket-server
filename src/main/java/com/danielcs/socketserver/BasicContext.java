@@ -62,9 +62,12 @@ class BasicContext implements SocketContext {
     @Override
     public void sendToUser(String propertyName, Object propertyValue, String path, Object payload) {
         String msg = getFormattedMessage(path, payload);
-        users.stream()
-                .filter(usr -> usr.getProperty(propertyName).equals(propertyValue))
-                .forEach(usr -> usr.sendMessage(msg));
+        for (UserSession user : users) {
+            Object prop = user.getProperty(propertyName);
+            if (prop != null && prop.equals(propertyValue)) {
+                user.sendMessage(msg);
+            }
+        }
     }
 
     @Override
