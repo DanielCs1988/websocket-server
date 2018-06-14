@@ -19,30 +19,45 @@ class MessageBroker implements Runnable {
     private final Map<String, Handler> handlers = new HashMap<>();
     private final Gson converter = new Gson();
     private final MessageFormatter msgFormatter = new BasicMessageFormatter();  // TODO: make it a plugin
+    private Caller connectHandler;
+    private Caller disconnectHandler;
 
     public MessageBroker(Socket socket, BasicContext ctx, Map<Class, Map<String, Controller>> controllers) {
         this.socket = socket;
         this.context = ctx;
-        initHandlers(controllers);
+        processControllers(controllers);
     }
 
-    private void initHandlers(Map<Class,Map<String,Controller>> controllers) {
+    private void processControllers(Map<Class, Map<String, Controller>> controllers) {
         try {
             for (Class handlerClass : controllers.keySet()) {
                 Object instance = handlerClass.newInstance();
                 Map<String, Controller> currentHandler = controllers.get(handlerClass);
-                for (String route : currentHandler.keySet()) {
+                addHandlers(instance, currentHandler);
+            }
+        } catch (IllegalAccessException | InstantiationException e) {
+            System.out.println("Could not create controller object. HINT: it needs to have a default constructor!");
+            System.exit(0);
+        }
+    }
+
+    private void addHandlers(Object instance, Map<String, Controller> currentHandler) {
+        for (String route : currentHandler.keySet()) {
+            switch (route) {
+                case "connect":
+                    connectHandler = new Caller(instance, currentHandler.get(route).getMethod());
+                    break;
+                case "disconnect":
+                    disconnectHandler = new Caller(instance, currentHandler.get(route).getMethod());
+                    break;
+                default:
                     handlers.put(route, new Handler(
                             instance,
                             currentHandler.get(route).getMethod(),
                             currentHandler.get(route).getType(),
                             converter
                     ));
-                }
             }
-        } catch (IllegalAccessException | InstantiationException e) {
-            System.out.println("Could not create controller object. HINT: it needs to have a default constructor!");
-            System.exit(0);
         }
     }
 
@@ -58,6 +73,13 @@ class MessageBroker implements Runnable {
         if (handler != null) {
             context.setCurrentRoute(msgFormatter.getRoute());
             handler.handle(context, msgFormatter.getRawPayload());
+        }
+    }
+
+    private void onConnect() {
+        if (connectHandler != null) {
+            connectHandler.call(context);
+            connectHandler = null;
         }
     }
 
@@ -81,6 +103,10 @@ class MessageBroker implements Runnable {
             String msg;
             boolean validationNeeded = SocketTransactionUtils.authGuardPresent();
 
+            if (!validationNeeded) {
+                onConnect();
+            }
+
             while (context.connected()) {
                 inputLength = inputStream.read(stream);
                 if (inputLength != -1) {
@@ -94,6 +120,7 @@ class MessageBroker implements Runnable {
                             break;
                         }
                         validationNeeded = false;
+                        onConnect();
                     } else {
                         processMessage(msg);
                     }
@@ -106,6 +133,7 @@ class MessageBroker implements Runnable {
             System.out.println("Messagebroker connection lost.");
         } finally {
             context.getUser().sendMessage("EOF");
+            disconnectHandler.call(context);
         }
     }
 }

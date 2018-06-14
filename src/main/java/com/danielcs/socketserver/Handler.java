@@ -6,16 +6,13 @@ import com.google.gson.JsonSyntaxException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-final class Handler {
+final class Handler extends Caller {
 
-    private final Object obj;
-    private final Method method;
     private final Class type;
     private final Gson converter;
 
     Handler(Object obj, Method method, Class type, Gson converter) {
-        this.obj = obj;
-        this.method = method;
+        super(obj, method);
         this.type = type;
         this.converter = converter;
     }

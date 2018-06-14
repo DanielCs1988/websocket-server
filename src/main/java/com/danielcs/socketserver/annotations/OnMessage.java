@@ -4,7 +4,7 @@ import java.lang.annotation.*;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface SocketHandler {
+public @interface OnMessage {
 
     String route();
     Class type() default String.class;
