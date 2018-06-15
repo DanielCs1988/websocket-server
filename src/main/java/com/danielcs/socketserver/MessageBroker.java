@@ -83,6 +83,14 @@ class MessageBroker implements Runnable {
         }
     }
 
+    private void onDisconnect() {
+        context.getUser().sendMessage("EOF");
+        if (disconnectHandler != null) {
+            disconnectHandler.call(context);
+        }
+        context.removeUser();
+    }
+
     @Override
     public void run() {
         try (
@@ -97,33 +105,21 @@ class MessageBroker implements Runnable {
                 return;
             }
             
-            System.out.println("Listening for incoming messages...");
             byte[] stream = new byte[BUFFER_SIZE];
             int inputLength;
             String msg;
-            boolean validationNeeded = SocketTransactionUtils.authGuardPresent();
 
-            if (!validationNeeded) {
-                onConnect();
-            }
+            onConnect();
+            System.out.println("Listening for incoming messages...");
 
             while (context.connected()) {
                 inputLength = inputStream.read(stream);
                 if (inputLength != -1) {
                     msg = decodeSocketStream(stream, inputLength);
-                    if (msg == null || msg.equals("EOF")) {
+                    if (msg == null) {
                         break;
                     }
-                    if (validationNeeded) {
-                        boolean authenticationIsValid = SocketTransactionUtils.intercept(msg);
-                        if (!authenticationIsValid) {
-                            break;
-                        }
-                        validationNeeded = false;
-                        onConnect();
-                    } else {
-                        processMessage(msg);
-                    }
+                    processMessage(msg);
                     stream = new byte[BUFFER_SIZE];
                 }
             }
@@ -132,8 +128,7 @@ class MessageBroker implements Runnable {
         } catch (IOException e) {
             System.out.println("Messagebroker connection lost.");
         } finally {
-            context.getUser().sendMessage("EOF");
-            disconnectHandler.call(context);
+            onDisconnect();
         }
     }
 }

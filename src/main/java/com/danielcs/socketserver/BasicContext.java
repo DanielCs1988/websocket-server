@@ -114,4 +114,8 @@ class BasicContext implements SocketContext {
     public void disconnect() {
         connected = false;
     }
+
+    void removeUser() {
+        users.remove(user);
+    }
 }

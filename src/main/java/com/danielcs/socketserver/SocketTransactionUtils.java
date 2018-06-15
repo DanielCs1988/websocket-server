@@ -103,32 +103,52 @@ class SocketTransactionUtils {
 
     static boolean handleHandshake(InputStream in, OutputStream out) throws IOException {
         String msg = new Scanner(in,"UTF-8").useDelimiter("\\r\\n\\r\\n").next();
-        if (msg.startsWith("GET")) {
-            Matcher match = Pattern.compile("Sec-WebSocket-Key: (.*)").matcher(msg);
-            if (!match.find()) {
-                return false;
-            }
-            byte[] response;
-            try {
-                response = ("HTTP/1.1 101 Switching Protocols\r\n"
-                        + "Connection: Upgrade\r\n"
-                        + "Upgrade: websocket\r\n"
-                        + "Sec-WebSocket-Accept: "
-                        + DatatypeConverter.printBase64Binary(
-                        MessageDigest
-                                .getInstance("SHA-1")
-                                .digest((match.group(1) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
-                                        .getBytes("UTF-8"))
-                )
-                        + "\r\n\r\n").getBytes("UTF-8");
-            } catch (UnsupportedEncodingException | NoSuchAlgorithmException e) {
-                System.out.println("Could not encode handshake.");
-                return false;
-            }
-            out.write(response, 0, response.length);
+        boolean isGetRequest = msg.startsWith("GET");
+        if (!(isGetRequest && validateAuthToken(msg))) {
+            byte[] reason = isGetRequest ? "HTTP/1.1 401".getBytes() : "HTTP/1.1 400".getBytes();
+            out.write(reason, 0, reason.length);
+            return false;
+        }
+
+        Matcher keyMatcher = Pattern.compile("Sec-WebSocket-Key: (.*)").matcher(msg);
+        keyMatcher.find();
+
+        byte[] response;
+        try {
+            response = ("HTTP/1.1 101 Switching Protocols\r\n"
+                    + "Connection: Upgrade\r\n"
+                    + "Upgrade: websocket\r\n"
+                    + "Sec-WebSocket-Accept: "
+                    + DatatypeConverter.printBase64Binary(
+                    MessageDigest
+                            .getInstance("SHA-1")
+                            .digest((keyMatcher.group(1) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+                                    .getBytes("UTF-8"))
+            )
+                    + "\r\n\r\n").getBytes("UTF-8");
+        } catch (UnsupportedEncodingException | NoSuchAlgorithmException e) {
+            System.out.println("Could not encode handshake.");
+            return false;
+        }
+        out.write(response, 0, response.length);
+        return true;
+    }
+
+    private static boolean validateAuthToken(String msg) {
+        if (!authGuardPresent()) {
             return true;
         }
-        return false;
+        Matcher authTokenMatcher = Pattern.compile("GET /(.+) HTTP").matcher(msg);
+        if (!authTokenMatcher.find()) {
+            System.out.println("Authorization token not found!");
+            return false;
+        }
+        String token = authTokenMatcher.group(1);
+        if (!intercept(token)) {
+            System.out.println("Authorization token is invalid!");
+            return false;
+        }
+        return true;
     }
 
     static boolean intercept(String token) {
