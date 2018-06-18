@@ -14,7 +14,7 @@ import static com.danielcs.socketserver.SocketTransactionUtils.decodeSocketStrea
 
 class MessageBroker implements Runnable {
 
-    // TODO: How to handle buffer size?
+    // TODO: Make buffer size dynamic
     private static final int BUFFER_SIZE = 4096;
 
     private final Socket socket;
@@ -26,7 +26,11 @@ class MessageBroker implements Runnable {
     private Caller connectHandler;
     private Caller disconnectHandler;
 
-    public MessageBroker(Socket socket, BasicContext ctx, Map<Class, Map<String, Controller>> controllers, Map<Class, Object> dependencies) {
+    MessageBroker(
+            Socket socket, BasicContext ctx,
+            Map<Class, Map<String, Controller>> controllers,
+            Map<Class, Object> dependencies
+    ) {
         this.socket = socket;
         this.context = ctx;
         this.dependencies = dependencies;

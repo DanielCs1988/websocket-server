@@ -20,9 +20,10 @@ import java.util.concurrent.*;
 public class SocketServer implements Server {
 
     private final int PORT;
-    private Set<Class<?>> config;
-    private final Map<Class, Object> dependencies = new HashMap<>();
     private final String CLASSPATH;
+
+    private Set<Class<?>> configClasses;
+    private final Map<Class, Object> dependencies = new HashMap<>();
 
     private final ExecutorService connectionPool;
     // TODO: MAY work better with a MAP, too many lookups
@@ -30,11 +31,7 @@ public class SocketServer implements Server {
     private final Map<Class, Map<String, Controller>> controllers = new HashMap<>();
 
     public SocketServer(int port, String classpath) {
-        this.PORT = port;
-        this.CLASSPATH = classpath;
-        connectionPool = Executors.newFixedThreadPool(20);
-        setupControllers();
-        initDependencies();
+        this(port, classpath, 20);
     }
 
     public SocketServer(int port, String classPath, int poolSize) {
@@ -46,7 +43,7 @@ public class SocketServer implements Server {
     }
 
     private void initDependencies() {
-        for (Class<?> configClass : config) {
+        for (Class<?> configClass : configClasses) {
             try {
                 Object configObject = configClass.newInstance();
                 for (Method method : configClass.getMethods()) {
@@ -56,6 +53,7 @@ public class SocketServer implements Server {
                 }
                 resolveDependencies();
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                System.out.println("Could not initialize dependencies.");
                 e.printStackTrace();
             }
         }
@@ -66,7 +64,7 @@ public class SocketServer implements Server {
             Object depObject = dependencies.get(dependency);
             for (Method method : depObject.getClass().getMethods()) {
                 if (method.isAnnotationPresent(InjectionPoint.class)) {
-                    Class classNeeded = method.getReturnType();
+                    Class classNeeded = method.getParameterTypes()[0];
                     method.invoke(depObject, dependencies.get(classNeeded));
                 }
             }
@@ -82,12 +80,19 @@ public class SocketServer implements Server {
         // TODO: handle multiple interceptors
         if (authGuards.size() > 0) {
             Method guard = authGuards.toArray(new Method[0])[0];
-            if (Modifier.isStatic(guard.getModifiers()) && guard.getReturnType().equals(boolean.class)) {
+            if (checkAuthGuardMethodSignature(guard)) {
                 SocketTransactionUtils.setAuthGuard(guard);
             }
         }
-        config = reflections.getTypesAnnotatedWith(Configuration.class);
+        configClasses = reflections.getTypesAnnotatedWith(Configuration.class);
         return reflections.getTypesAnnotatedWith(SocketController.class);
+    }
+
+    private boolean checkAuthGuardMethodSignature(Method guard) {
+        return Modifier.isStatic(guard.getModifiers()) &&
+                guard.getReturnType().equals(boolean.class) &&
+                guard.getParameterCount() == 1 &&
+                guard.getParameterTypes()[0].equals(String.class);
     }
 
     private void setupControllers() {
