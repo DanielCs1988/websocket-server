@@ -9,6 +9,7 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.ServerSocket;
@@ -19,6 +20,8 @@ import java.util.concurrent.*;
 public class SocketServer implements Server {
 
     private final int PORT;
+    private Set<Class<?>> config;
+    private final Map<Class, Object> dependencies = new HashMap<>();
     private final String CLASSPATH;
 
     private final ExecutorService connectionPool;
@@ -31,6 +34,7 @@ public class SocketServer implements Server {
         this.CLASSPATH = classpath;
         connectionPool = Executors.newFixedThreadPool(20);
         setupControllers();
+        initDependencies();
     }
 
     public SocketServer(int port, String classPath, int poolSize) {
@@ -38,6 +42,35 @@ public class SocketServer implements Server {
         this.CLASSPATH = classPath;
         connectionPool = Executors.newFixedThreadPool(poolSize * 2);
         setupControllers();
+        initDependencies();
+    }
+
+    private void initDependencies() {
+        for (Class<?> configClass : config) {
+            try {
+                Object configObject = configClass.newInstance();
+                for (Method method : configClass.getMethods()) {
+                    if (method.isAnnotationPresent(Dependency.class)) {
+                        dependencies.put(method.getReturnType(), method.invoke(configObject));
+                    }
+                }
+                resolveDependencies();
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void resolveDependencies() throws InvocationTargetException, IllegalAccessException {
+        for (Class dependency : dependencies.keySet()) {
+            Object depObject = dependencies.get(dependency);
+            for (Method method : depObject.getClass().getMethods()) {
+                if (method.isAnnotationPresent(InjectionPoint.class)) {
+                    Class classNeeded = method.getReturnType();
+                    method.invoke(depObject, dependencies.get(classNeeded));
+                }
+            }
+        }
     }
 
     private Set<Class<?>> scanClassPath() {
@@ -53,6 +86,7 @@ public class SocketServer implements Server {
                 SocketTransactionUtils.setAuthGuard(guard);
             }
         }
+        config = reflections.getTypesAnnotatedWith(Configuration.class);
         return reflections.getTypesAnnotatedWith(SocketController.class);
     }
 
@@ -82,7 +116,7 @@ public class SocketServer implements Server {
                 users.add(user);
                 BasicContext ctx = new BasicContext(user, users);
                 MessageSender handler = new MessageSender(client, user);
-                MessageBroker broker = new MessageBroker(client, ctx, controllers);
+                MessageBroker broker = new MessageBroker(client, ctx, controllers, dependencies);
 
                 connectionPool.execute(handler);
                 connectionPool.execute(broker);

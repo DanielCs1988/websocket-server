@@ -3,6 +3,9 @@ package com.danielcs.socketserver;
 import com.google.gson.Gson;
 
 import java.io.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Parameter;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,26 +22,38 @@ class MessageBroker implements Runnable {
     private final Map<String, Handler> handlers = new HashMap<>();
     private final Gson converter = new Gson();
     private final MessageFormatter msgFormatter = new BasicMessageFormatter();  // TODO: make it a plugin
+    private final Map<Class, Object> dependencies;
     private Caller connectHandler;
     private Caller disconnectHandler;
 
-    public MessageBroker(Socket socket, BasicContext ctx, Map<Class, Map<String, Controller>> controllers) {
+    public MessageBroker(Socket socket, BasicContext ctx, Map<Class, Map<String, Controller>> controllers, Map<Class, Object> dependencies) {
         this.socket = socket;
         this.context = ctx;
+        this.dependencies = dependencies;
         processControllers(controllers);
     }
 
     private void processControllers(Map<Class, Map<String, Controller>> controllers) {
         try {
             for (Class handlerClass : controllers.keySet()) {
-                Object instance = handlerClass.newInstance();
+                Object instance = injectDependencies(handlerClass);
                 Map<String, Controller> currentHandler = controllers.get(handlerClass);
                 addHandlers(instance, currentHandler);
             }
-        } catch (IllegalAccessException | InstantiationException e) {
+        } catch (IllegalAccessException | InstantiationException | InvocationTargetException e) {
             System.out.println("Could not create controller object. HINT: it needs to have a default constructor!");
             System.exit(0);
         }
+    }
+
+    private Object injectDependencies(Class handlerClass) throws IllegalAccessException, InvocationTargetException, InstantiationException {
+        Constructor constructor = handlerClass.getConstructors()[0];
+        Class[] paramClasses =  constructor.getParameterTypes();
+        Object[] params = new Object[paramClasses.length];
+        for (int i = 0; i < paramClasses.length; i++) {
+            params[i] = dependencies.getOrDefault(paramClasses[i], null);
+        }
+        return params.length > 0 ? constructor.newInstance(params) : constructor.newInstance();
     }
 
     private void addHandlers(Object instance, Map<String, Controller> currentHandler) {

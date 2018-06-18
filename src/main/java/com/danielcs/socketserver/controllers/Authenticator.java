@@ -16,7 +16,7 @@ public class Authenticator {
     private static HttpsJwks httpsJwks = new HttpsJwks(System.getenv("JWKS_ENDPOINT"));
     private static HttpsJwksVerificationKeyResolver resolver = new HttpsJwksVerificationKeyResolver(httpsJwks);
 
-    @AuthGuard
+
     public static boolean validate(String token) {
 
         try {
