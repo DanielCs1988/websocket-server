@@ -1,6 +1,7 @@
 package com.danielcs.socketserver;
 
 import com.danielcs.socketserver.annotations.*;
+import com.google.gson.Gson;
 import org.reflections.Reflections;
 import org.reflections.scanners.*;
 import org.reflections.util.ClasspathHelper;
@@ -15,13 +16,21 @@ import java.util.concurrent.*;
 
 public class SocketServer implements Server {
 
+    private static final String ON_CONNECT = "connect";
+    private static final String ON_DISCONNECT = "disconnect";
+
     private final int PORT;
     private final String CLASSPATH;
     private final Map<Class, Object> dependencies = new HashMap<>();
     private final ExecutorService connectionPool;
     // TODO: MAY work better with a MAP, too many lookups
     private final Set<UserSession> users = Collections.synchronizedSet(new HashSet<>());
-    private final Map<Class, Map<String, Controller>> controllers = new HashMap<>();
+
+    private final Map<String, Controller> controllers = new HashMap<>();
+    private final Gson converter = new Gson();
+    private final MessageFormatter formatter = new BasicMessageFormatter(); // TODO: Can make this customizable!
+    private Caller connectHandler;
+    private Caller disconnectHandler;
 
     public SocketServer(int port, String classpath) {
         this(port, classpath, 20);
@@ -78,39 +87,54 @@ public class SocketServer implements Server {
         }
     }
 
-    Object injectDependencies(Class processedClass) throws IllegalAccessException, InvocationTargetException, InstantiationException {
+    private Object injectDependencies(Class processedClass)  {
         Constructor constructor = processedClass.getConstructors()[0];
         Class[] paramClasses =  constructor.getParameterTypes();
         Object[] params = new Object[paramClasses.length];
         for (int i = 0; i < paramClasses.length; i++) {
             params[i] = dependencies.getOrDefault(paramClasses[i], null);
         }
-        return params.length > 0 ? constructor.newInstance(params) : constructor.newInstance();
+        try {
+            return params.length > 0 ? constructor.newInstance(params) : constructor.newInstance();
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+            System.out.println("Could not inject dependencies to class: " + processedClass.getName());
+            return null;
+        }
     }
 
     private void setupControllers(Set<Class<?>> handlerClasses) {
         for (Class handlerClass : handlerClasses) {
-            controllers.put(handlerClass, new HashMap<>());
-            Map<String, Controller> currentHandler = controllers.get(handlerClass);
-
+            Object instance = injectDependencies(handlerClass);
             for (Method method : handlerClass.getMethods()) {
                 if (method.isAnnotationPresent(OnMessage.class)) {
-                    OnMessage config = method.getAnnotation(OnMessage.class);
-                    currentHandler.put(config.route(), new Controller(method, config.type()));
+                    createController(instance, method);
                 }
             }
         }
     }
 
+    private void createController(Object instance, Method method) {
+        OnMessage config = method.getAnnotation(OnMessage.class);
+        final String route = config.route();
+        final Class type = config.type();
+
+        switch (route) {
+            case ON_CONNECT:
+                connectHandler = new Caller(instance, method);
+                break;
+            case ON_DISCONNECT:
+                disconnectHandler = new Caller(instance, method);
+                break;
+            default:
+                controllers.put(route, new Controller(instance, method, type, converter));
+                break;
+        }
+    }
+
     private void setAuthGuards(Set<Class<? extends AuthGuard>> authGuards) {
         for (Class<? extends AuthGuard> authGuard : authGuards) {
-            try {
-                AuthGuard guard = (AuthGuard) injectDependencies(authGuard);
-                SocketTransactionUtils.registerAuthGuard(guard);
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                System.out.println("Could not instantiate authguards!");
-                e.printStackTrace();
-            }
+            AuthGuard guard = (AuthGuard) injectDependencies(authGuard);
+            SocketTransactionUtils.registerAuthGuard(guard);
         }
     }
 
@@ -125,7 +149,9 @@ public class SocketServer implements Server {
                 users.add(user);
                 BasicContext ctx = new BasicContext(user, users);
                 MessageSender handler = new MessageSender(client, user);
-                MessageBroker broker = new MessageBroker(client, ctx, controllers, this);
+                MessageBroker broker = new MessageBroker(
+                        client, ctx, controllers, connectHandler, disconnectHandler, formatter
+                );
 
                 connectionPool.execute(handler);
                 connectionPool.execute(broker);

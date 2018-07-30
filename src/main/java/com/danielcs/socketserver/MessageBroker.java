@@ -1,13 +1,7 @@
 package com.danielcs.socketserver;
 
-import com.google.gson.Gson;
-
 import java.io.*;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Parameter;
 import java.net.Socket;
-import java.util.HashMap;
 import java.util.Map;
 
 import static com.danielcs.socketserver.SocketTransactionUtils.decodeSocketStream;
@@ -17,70 +11,40 @@ class MessageBroker implements Runnable {
     // TODO: Make buffer size dynamic
     private static final int BUFFER_SIZE = 4096;
 
+    private final MessageFormatter msgFormatter;
     private final Socket socket;
     private final BasicContext context;
-
-    private final Map<String, Handler> handlers = new HashMap<>();
-    private final Gson converter = new Gson();
-    private final MessageFormatter msgFormatter = new BasicMessageFormatter();  // TODO: make it a plugin
+    private final Map<String, Controller> controllers;
     private Caller connectHandler;
     private Caller disconnectHandler;
 
     MessageBroker(
-            Socket socket, BasicContext ctx,
-            Map<Class, Map<String, Controller>> controllers,
-            SocketServer server
+            Socket socket,
+            BasicContext ctx,
+            Map<String, Controller> controllers,
+            Caller connectHandler,
+            Caller disconnectHandler,
+            MessageFormatter msgFormatter
     ) {
         this.socket = socket;
         this.context = ctx;
-        processControllers(controllers, server);
-    }
-
-    private void processControllers(Map<Class, Map<String, Controller>> controllers, SocketServer server) {
-        try {
-            for (Class handlerClass : controllers.keySet()) {
-                Object instance = server.injectDependencies(handlerClass);
-                Map<String, Controller> currentHandler = controllers.get(handlerClass);
-                addHandlers(instance, currentHandler);
-            }
-        } catch (IllegalAccessException | InstantiationException | InvocationTargetException e) {
-            System.out.println("Could not create controller object. HINT: it needs to have a default constructor!");
-            System.exit(0);
-        }
-    }
-
-    private void addHandlers(Object instance, Map<String, Controller> currentHandler) {
-        for (String route : currentHandler.keySet()) {
-            switch (route) {
-                case "connect":
-                    connectHandler = new Caller(instance, currentHandler.get(route).getMethod());
-                    break;
-                case "disconnect":
-                    disconnectHandler = new Caller(instance, currentHandler.get(route).getMethod());
-                    break;
-                default:
-                    handlers.put(route, new Handler(
-                            instance,
-                            currentHandler.get(route).getMethod(),
-                            currentHandler.get(route).getType(),
-                            converter
-                    ));
-            }
-        }
+        this.controllers = controllers;
+        this.connectHandler = connectHandler;
+        this.disconnectHandler = disconnectHandler;
+        this.msgFormatter = msgFormatter;
     }
 
     private void processMessage(String msg) {
-        // TODO: structural weakness, it should handle a nested object instead of special string
         try {
             msgFormatter.processMessage(msg);
         } catch (IllegalArgumentException e) {
             System.out.println(e.getMessage());
             return;
         }
-        Handler handler = handlers.get(msgFormatter.getRoute());
-        if (handler != null) {
+        Controller controller = controllers.get(msgFormatter.getRoute());
+        if (controller != null) {
             context.setCurrentRoute(msgFormatter.getRoute());
-            handler.handle(context, msgFormatter.getRawPayload());
+            controller.handle(context, msgFormatter.getRawPayload());
         }
     }
 
