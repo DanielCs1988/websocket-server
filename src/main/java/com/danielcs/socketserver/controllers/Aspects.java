@@ -20,7 +20,7 @@ public class Aspects {
 
     @Aspect(type = AspectType.INTERCEPTOR)
     public boolean authenticate(Object... args) {
-        SocketContext ctx = (SocketContext)args[0];
+        SocketContext ctx = (SocketContext)args[1];
         int userId = (int)ctx.getProperty("userId");
         System.out.println("Current user's id: " + userId);
         if (userId != 17) {
@@ -32,7 +32,7 @@ public class Aspects {
 
     @Aspect(type = AspectType.PREPROCESSOR)
     public Object[] process(Object... args) {
-        String messageToProcess = args[1].toString();
+        String messageToProcess = args[2].toString();
         messageToProcess += "KEK";
         return new Object[]{args[0], messageToProcess};
     }
