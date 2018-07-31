@@ -15,15 +15,15 @@ class MessageBroker implements Runnable {
     private final Socket socket;
     private final BasicContext context;
     private final Map<String, Controller> controllers;
-    private Caller connectHandler;
-    private Caller disconnectHandler;
+    private HandlerInvoker connectHandler;
+    private HandlerInvoker disconnectHandler;
 
     MessageBroker(
             Socket socket,
             BasicContext ctx,
             Map<String, Controller> controllers,
-            Caller connectHandler,
-            Caller disconnectHandler,
+            HandlerInvoker connectHandler,
+            HandlerInvoker disconnectHandler,
             MessageFormatter msgFormatter
     ) {
         this.socket = socket;

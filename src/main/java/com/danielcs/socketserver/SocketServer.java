@@ -1,6 +1,7 @@
 package com.danielcs.socketserver;
 
 import com.danielcs.socketserver.annotations.*;
+import com.danielcs.socketserver.request.RequestHandlerFactory;
 import com.google.gson.Gson;
 import org.reflections.Reflections;
 import org.reflections.scanners.*;
@@ -13,6 +14,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class SocketServer implements Server {
 
@@ -29,8 +31,10 @@ public class SocketServer implements Server {
     private final Map<String, Controller> controllers = new HashMap<>();
     private final Gson converter = new Gson();
     private final MessageFormatter formatter = new BasicMessageFormatter(); // TODO: Can make this customizable!
-    private Caller connectHandler;
-    private Caller disconnectHandler;
+
+    private HandlerInvoker connectHandler;
+    private HandlerInvoker disconnectHandler;
+    private Injector injector;
 
     public SocketServer(int port, String classpath) {
         this(port, classpath, 20);
@@ -53,9 +57,25 @@ public class SocketServer implements Server {
         Set<Class<?>> configClasses = reflections.getTypesAnnotatedWith(Configuration.class);
         Set<Class<? extends AuthGuard>> authGuards = reflections.getSubTypesOf(AuthGuard.class);
 
-        initDependencies(configClasses);
-        setupControllers(handlerClasses);
+        Set<Class<?>> assemblers = reflections.getTypesAnnotatedWith(HttpRequestAssembler.class);
+        Object proxy = RequestHandlerFactory.createProxy(assemblers, converter);
+
+        Set<Method> aspects = reflections.getMethodsAnnotatedWith(Aspect.class);
+        Set<Class> fabric = reflections.getMethodsAnnotatedWith(Weave.class).stream()
+                .map(Method::getDeclaringClass)
+                .collect(Collectors.toSet());
+
+        initRequestHandlers(assemblers, proxy);
+        initDependencies(configClasses);  // Injector instance is set up at the end of this method call
+        Weaver weaver = WeaverFactory.createWeaver(fabric, aspects, injector);
+        setupControllers(handlerClasses, fabric, weaver);
         setAuthGuards(authGuards);
+    }
+
+    private void initRequestHandlers(Set<Class<?>> assemblers, Object proxy) {
+        for (Class<?> assembler : assemblers) {
+            dependencies.put(assembler, proxy);
+        }
     }
 
     private void initDependencies(Set<Class<?>> configClasses) {
@@ -85,55 +105,49 @@ public class SocketServer implements Server {
                 }
             }
         }
+        injector = new Injector(dependencies);
     }
 
-    private Object injectDependencies(Class processedClass)  {
-        Constructor constructor = processedClass.getConstructors()[0];
-        Class[] paramClasses =  constructor.getParameterTypes();
-        Object[] params = new Object[paramClasses.length];
-        for (int i = 0; i < paramClasses.length; i++) {
-            params[i] = dependencies.getOrDefault(paramClasses[i], null);
-        }
-        try {
-            return params.length > 0 ? constructor.newInstance(params) : constructor.newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            System.out.println("Could not inject dependencies to class: " + processedClass.getName());
-            return null;
-        }
-    }
-
-    private void setupControllers(Set<Class<?>> handlerClasses) {
+    private void setupControllers(Set<Class<?>> handlerClasses, Set<Class> fabric, Weaver weaver) {
         for (Class handlerClass : handlerClasses) {
-            Object instance = injectDependencies(handlerClass);
+            boolean shouldWeave = fabric.contains(handlerClass);
+            Object instance = shouldWeave ? weaver : injector.injectDependencies(handlerClass);
             for (Method method : handlerClass.getMethods()) {
                 if (method.isAnnotationPresent(OnMessage.class)) {
-                    createController(instance, method);
+                    createController(instance, method, shouldWeave);
                 }
             }
         }
     }
 
-    private void createController(Object instance, Method method) {
+    private void createController(Object instance, Method method, boolean shouldWeave) {
         OnMessage config = method.getAnnotation(OnMessage.class);
         final String route = config.route();
         final Class type = config.type();
 
         switch (route) {
             case ON_CONNECT:
-                connectHandler = new Caller(instance, method);
+                connectHandler = shouldWeave ?
+                        new HandlerInvoker(instance, method, true) :
+                        new HandlerInvoker(instance, method);
                 break;
             case ON_DISCONNECT:
-                disconnectHandler = new Caller(instance, method);
+                disconnectHandler = shouldWeave ?
+                        new HandlerInvoker(instance, method, true) :
+                        new HandlerInvoker(instance, method);
                 break;
             default:
-                controllers.put(route, new Controller(instance, method, type, converter));
-                break;
+                if (shouldWeave) {
+                    controllers.put(route, new Controller(instance, method, type, converter, true));
+                } else {
+                    controllers.put(route, new Controller(instance, method, type, converter));
+                }
         }
     }
 
     private void setAuthGuards(Set<Class<? extends AuthGuard>> authGuards) {
         for (Class<? extends AuthGuard> authGuard : authGuards) {
-            AuthGuard guard = (AuthGuard) injectDependencies(authGuard);
+            AuthGuard guard = (AuthGuard) injector.injectDependencies(authGuard);
             SocketTransactionUtils.registerAuthGuard(guard);
         }
     }

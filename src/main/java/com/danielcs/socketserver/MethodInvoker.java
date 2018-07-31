@@ -3,21 +3,22 @@ package com.danielcs.socketserver;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-class Caller {
+class MethodInvoker {
 
     protected final Object obj;
     protected final Method method;
 
-    Caller(Object obj, Method method) {
+    public MethodInvoker(Object obj, Method method) {
         this.obj = obj;
         this.method = method;
     }
 
-    void call(SocketContext ctx) {
+    Object invoke(Object... args) {
         try {
-            method.invoke(obj, ctx);
+            return method.invoke(obj, args);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            System.out.println("ERROR: could not call lifecycle method " + method.getName());
+            System.out.println("Error when invoking method " + method.getName() + "!");
         }
+        return null;
     }
 }
